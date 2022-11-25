@@ -7,6 +7,7 @@ class myModules
      constructor()
      {
           this.bcrypt = bcrypt;
+          this.jwt = jwt;
      }
 
      async encryptPassword(password) {
@@ -15,18 +16,16 @@ class myModules
 
      async getHashData(...args) {
           args = args.toString().replace(',', '');
-          return await this.bcrypt.hash(args, await this.bcrypt.genSalt(15));
+          return this.bcrypt.hash(args, await this.bcrypt.genSalt(10));
      }
 
      async comparePassword(password, hash) {
           return await bcrypt.compare(password, hash);
      }
 
-     async createToken(hash, expiresIn=86400) {
+     createToken(hash, expiresIn=86400) {
           try {
-               const SECRET = process.env.SECRET;
-               console.log(hash)
-               return jwt.sign({hash: `${hash}`}, SECRET, { expiresIn });
+               return jwt.sign({ hash }, process.env.SECRET, { expiresIn });
           }
           catch (err) {
                console.error(err);

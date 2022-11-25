@@ -35,14 +35,15 @@ app.post('/auth/register', async (req, res) => {
           return res.status(400).json({ message: "email already exists" });
 
      } else {
+          const passwordHash = await myM.encryptPassword(password);
           await new Users({
                username,
                email,
-               password: await myM.encryptPassword(password),
-               hash: await myM.getHashData(username, email, password),
+               password: passwordHash,
+               hash: await myM.getHashData(username, passwordHash, Math.random() * 1000),
           }).save()
-          .then((data) => {
-               const token = myM.createToken(myM.getHashData(data.hash), process.env.MAX_AGE_SESSION);
+          .then(async (data) => {
+               const token = myM.createToken(data.hash, process.env.MAX_AGE_SESSION);
 
                res.cookie('token', token, {maxAge: process.env.MAX_AGE_SESSION, httpOnly: true, sameSite: 'strict'});
                
@@ -53,7 +54,6 @@ app.post('/auth/register', async (req, res) => {
                console.error(err);
                return res.status(500).json({ message: "server error" });
           });
-
      }
 });
 
@@ -69,8 +69,8 @@ app.post ('/auth/login', async (req, res) => {
      } else {
           await Users.findOne({ email })
           .then(async  data => {
-               if (data && myM.comparePassword(password, data.password)) {
-                    const token = await myM.createToken(myM.getHashData(data.hash), process.env.MAX_AGE_SESSION);
+               if (data && await myM.comparePassword(password, data.password)) {
+                    const token = myM.createToken(data.hash, process.env.MAX_AGE_SESSION);
 
                     res.cookie('token', token, {maxAge: process.env.MAX_AGE_SESSION, httpOnly: true, sameSite: 'strict'});
                     
@@ -78,13 +78,46 @@ app.post ('/auth/login', async (req, res) => {
                          res.status(500).json({ message: "server error" });
 
                } else {
-                    return res.status(400).json({ message: "unregistered user" });
+                    return res.status(400).json({ message: "incorrect data" });
                }
           })
           .catch(err => {
                console.error(err);
                return res.status(500).json({ message: "server error" });
           });
+     }
+});
+
+app.post('/auth/newpassword', checkToken, async (req, res) => {
+     const { password, newPassword, confirmPassword } = req.body;
+
+     if (!password || !newPassword || !confirmPassword || 8 > newPassword.length > 16 || newPassword !== confirmPassword) {
+          return res.status(400).json({ message: "incorrect data" });
+
+     } else if (password === newPassword) {
+          return res.status(400).json({ message: "same passwords" });
+
+     } else {
+          await Users.findById(req.userData._id)
+          .then(async data => {
+               if (await myM.comparePassword(password, data.password)) {
+                    const passwordHash = await myM.encryptPassword(newPassword);
+                    const hash = await myM.getHashData(req.userData.username, passwordHash, Math.random() * 1000);
+
+                    await Users.findByIdAndUpdate({_id: data.id}, {password: passwordHash, hash})
+                    .then(() => { 
+                         token = myM.createToken(hash, process.env.MAX_AGE_SESSION);
+                         res.cookie('token', token, {maxAge: process.env.MAX_AGE_SESSION, httpOnly: true, sameSite: 'strict'});
+                         return res.status(200).json({ message: "password changed" });
+                    })
+                    .catch(err => {
+                         console.error(err);
+                         return res.status(500).json({ message: "server error" });
+                    });
+
+               } else return res.status(400).json({ message: "incorrect data" });
+
+          })
      }
 });
 
@@ -99,28 +132,28 @@ app.delete('/auth/logout', async (req, res) => {
 });
 
 async function checkToken(req, res, next) {
-     const hash = myM.decoteMyToken(req.cookies.token);
 
-     console.log(hash)
-     // const data = await Users.findOne({hash})
-     // .catch(err => {
-     //      console.error(err);
-     //      return res.status(500).json({ message: "server errord" });
-     // });
+     if (!req.cookies.token) return res.status(400).json({'message': 'user not logged in'});
 
-     // if (data) {
-     //      console.log(data);
-     //      req.userHash = data;
-     //      next();
-     // } else {
-     //      return res.status(400).json({ message: "unauthorized" });
-     // }
+     const tokenData = myM.decoteMyToken(req.cookies.token);
+     if (!tokenData) return res.status(500).json({'message': 'server error'});
 
-     res.sendStatus(200);
+     const data = await Users.findOne({hash: tokenData.hash}, '-password -hash -__v')
+     .catch(err => {
+          console.error(err);
+          return res.status(500).json({ message: "server error" });
+     });
+
+     if (data) {
+          req.userData = data;
+          next();
+     } else {
+          return res.status(400).json({ message: "unauthorized" });
+     }
 }
 
-app.get('/', checkToken, async () => {
-
+app.get('/', checkToken, (req, res) => {
+     return res.status(200).json(req.userData);
 });
 
 const PORT = process.env.PORT || 3000;
