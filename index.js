@@ -68,9 +68,9 @@ app.post ('/auth/login', async (req, res) => {
 
      } else {
           await Users.findOne({ email })
-          .then(data => {
+          .then(async  data => {
                if (data && myM.comparePassword(password, data.password)) {
-                    const token = myM.createToken(myM.getHashData(data.hash), process.env.MAX_AGE_SESSION);
+                    const token = await myM.createToken(myM.getHashData(data.hash), process.env.MAX_AGE_SESSION);
 
                     res.cookie('token', token, {maxAge: process.env.MAX_AGE_SESSION, httpOnly: true, sameSite: 'strict'});
                     

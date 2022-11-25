@@ -25,7 +25,7 @@ class myModules
      async createToken(hash, expiresIn=86400) {
           try {
                const SECRET = process.env.SECRET;
-
+               console.log(hash)
                return jwt.sign({hash: `${hash}`}, SECRET, { expiresIn });
           }
           catch (err) {
@@ -34,7 +34,7 @@ class myModules
           }
      }
 
-     async decoteMyToken(token) {
+     decoteMyToken(token) {
           try {
                jwt.verify(token, process.env.SECRET);   
                return jwt.decode(token);
