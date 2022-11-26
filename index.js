@@ -106,7 +106,7 @@ app.post('/auth/newpassword', checkToken, async (req, res) => {
 
                     await Users.findByIdAndUpdate({_id: data.id}, {password: passwordHash, hash})
                     .then(() => { 
-                         token = myM.createToken(hash, process.env.MAX_AGE_SESSION);
+                         const token = myM.createToken(hash, process.env.MAX_AGE_SESSION);
                          res.cookie('token', token, {maxAge: process.env.MAX_AGE_SESSION, httpOnly: true, sameSite: 'strict'});
                          return res.status(200).json({ message: "password changed" });
                     })
@@ -136,7 +136,7 @@ async function checkToken(req, res, next) {
      if (!req.cookies.token) return res.status(400).json({'message': 'user not logged in'});
 
      const tokenData = myM.decoteMyToken(req.cookies.token);
-     if (!tokenData) return res.status(500).json({'message': 'server error'});
+     if (!tokenData) return res.status(500).json({'message': 'token error'});
 
      const data = await Users.findOne({hash: tokenData.hash}, '-password -hash -__v')
      .catch(err => {

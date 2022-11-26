@@ -39,7 +39,6 @@ class myModules
                return jwt.decode(token);
           }
           catch (err) {
-               console.error(err);
                return false;
           }
      }
