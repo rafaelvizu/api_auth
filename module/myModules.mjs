@@ -20,12 +20,12 @@ class myModules
      }
 
      async comparePassword(password, hash) {
-          return await bcrypt.compare(password, hash);
+          return await this.bcrypt.compare(password, hash);
      }
 
      createToken(hash, expiresIn=86400) {
           try {
-               return jwt.sign({ hash }, process.env.SECRET, { expiresIn });
+               return this.jwt.sign({ hash }, process.env.SECRET, { expiresIn });
           }
           catch (err) {
                console.error(err);
